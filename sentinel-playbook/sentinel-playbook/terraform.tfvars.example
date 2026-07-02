@@ -1,0 +1,11 @@
+resource_group_name = "rg-sentinel-prod"
+location            = "westeurope"
+workspace_name      = "law-sentinel-prod"
+retention_in_days   = 90
+logic_app_name      = "logic-sentinel-playbook"
+
+tags = {
+  environment = "prod"
+  managed_by  = "terraform"
+  workload    = "sentinel"
+}
