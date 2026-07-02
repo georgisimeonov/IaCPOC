@@ -1,0 +1,87 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "triggers": {
+      "manual": {
+        "type": "Request",
+        "kind": "Http",
+        "inputs": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "incidentArmId": {
+                "type": "string",
+                "description": "Full ARM resource ID of the Sentinel incident, e.g. /subscriptions/.../providers/Microsoft.SecurityInsights/incidents/{guid}"
+              },
+              "status": {
+                "type": "string",
+                "description": "New/InProgress/Closed"
+              },
+              "classification": {
+                "type": "string",
+                "description": "Required when status is Closed, e.g. TruePositive, FalsePositive, BenignPositive, Undetermined"
+              },
+              "classificationComment": {
+                "type": "string"
+              }
+            },
+            "required": ["incidentArmId", "status"]
+          }
+        }
+      }
+    },
+    "actions": {
+      "Get_Incident": {
+        "type": "Http",
+        "inputs": {
+          "method": "GET",
+          "uri": "https://management.azure.com/@{triggerBody()?['incidentArmId']}?api-version=2023-11-01",
+          "authentication": {
+            "type": "ManagedServiceIdentity"
+          }
+        }
+      },
+      "Update_Incident_Status": {
+        "type": "Http",
+        "runAfter": {
+          "Get_Incident": ["Succeeded"]
+        },
+        "inputs": {
+          "method": "PUT",
+          "uri": "https://management.azure.com/@{triggerBody()?['incidentArmId']}?api-version=2023-11-01",
+          "authentication": {
+            "type": "ManagedServiceIdentity"
+          },
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "etag": "@{body('Get_Incident')?['etag']}",
+            "properties": {
+              "status": "@{triggerBody()?['status']}",
+              "classification": "@{triggerBody()?['classification']}",
+              "classificationComment": "@{triggerBody()?['classificationComment']}"
+            }
+          }
+        }
+      },
+      "Response": {
+        "type": "Response",
+        "runAfter": {
+          "Update_Incident_Status": ["Succeeded"]
+        },
+        "inputs": {
+          "statusCode": 200,
+          "body": {
+            "result": "Incident status updated",
+            "incidentArmId": "@{triggerBody()?['incidentArmId']}",
+            "newStatus": "@{triggerBody()?['status']}"
+          }
+        }
+      }
+    },
+    "outputs": {}
+  },
+  "kind": "Stateful"
+}
